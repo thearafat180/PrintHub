@@ -273,6 +273,35 @@ body {
   font-weight: 500;
 }
 
+/* Per-file color select and copies input styling */
+.file-color {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 10px;
+  border: 1px solid #dfe6f8;
+  border-radius: 8px;
+  background: white;
+  font-weight: 600;
+  color: #333;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.06);
+}
+.file-copies {
+  padding: 8px 10px;
+  border: 1px solid #dfe6f8;
+  border-radius: 8px;
+  width: 90px;
+  font-weight: 600;
+  color: #333;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Make the file item area slightly more airy like the screenshot */
+.file-item {
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
 .cost-display {
   background: #fff3e0;
   border: 2px solid #ff9800;

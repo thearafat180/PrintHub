@@ -11,24 +11,27 @@ const clearBtn = document.getElementById('clearBtn');
 const loading = document.getElementById('loading');
 const fileInputLabel = document.getElementById('fileInputLabel');
 const filesList = document.getElementById('filesList');
-const colorTypeInputs = document.querySelectorAll('input[name="colorType"]');
+// Global print type removed; per-file color select is used. Default per-file color = 'bw'.
 const costDisplay = document.getElementById('costDisplay');
 const totalCostSpan = document.getElementById('totalCost');
 const paymentSection = document.getElementById('paymentSection');
-const SERVER_UPLOAD_URL = 'http://192.168.0.168:5000/upload';
+// const SERVER_UPLOAD_URL = 'http://localhost:5000/upload';
+const SERVER_UPLOAD_URL = 'http://localhost:5000/api/upload';
+
 // For now we don't have a real payment gateway integrated.
 // Set SIMULATE_PAYMENT=true to always treat payments as successful (demo mode).
-const SIMULATE_PAYMENT = true;
+const SIMULATE_PAYMENT = false;
 let selectedFiles = [];
 let totalPages = 0;
+
 // The label has a for="fileInput" attribute — that's sufficient to open the file picker.
-// Removing the manual click trigger prevents potential double-click behavior in some browsers.
 // Append newly selected files to the existing selection so users can open the
 // file dialog multiple times and keep previously chosen files.
 fileInput.addEventListener('change', (e) => {
   if (!e.target.files) return;
   addFiles(e.target.files);
 });
+
 fileInputLabel.addEventListener('dragover', (e) => {
   e.preventDefault();
   fileInputLabel.classList.add('drag-over');
@@ -68,10 +71,19 @@ function updateFilesList() {
               <div class="file-left">
                 <div class="file-name">${file.name} (${sizeMB} MB)</div>
                 <div style="font-size:0.9em; color:#444; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                  <label style="display:flex; gap:8px; align-items:center">Color:
+                    <select class="file-color" data-index="${index}">
+                      <option value="bw" ${item.color==='bw' ? 'selected' : ''}>B/W</option>
+                      <option value="color" ${item.color==='color' ? 'selected' : ''}>Color</option>
+                    </select>
+                  </label>
+                  <label style="display:flex; gap:8px; align-items:center">Copies:
+                    <input type="number" min="1" class="file-copies" data-index="${index}" value="${item.copies || 1}">
+                  </label>
                   <span style="color:#666; white-space:nowrap">Total Page: 
                     <strong>${pc === null ? '...' : pc}</strong>
                   </span>
-                  <span style="color:#666; white-space:nowrap">Selected: 
+                  <span style="color:#666; white-space:nowrap">Selected per copy: 
                     <strong>1</strong>
                   </span>
                 </div>
@@ -88,13 +100,25 @@ function updateFilesList() {
                 <div style="font-size:0.9em; color:#444; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                   <label style="font-weight:600">From</label>
                   <input type="number" min="1" class="file-from" data-index="${index}" value="${item.from || ''}" style="width:80px; padding:6px; border-radius:6px; border:1px solid #ddd">
-                    <span>to</span>
+                    <label style="font-weight:600">To</label>
                     <input type="number" min="1" class="file-to" data-index="${index}" value="${item.to || ''}" style="width:80px; padding:6px; border-radius:6px; border:1px solid #ddd">
+                      <label style="margin-left:8px; display:flex; gap:8px; align-items:center; font-weight:600">Color:
+                        <select class="file-color" data-index="${index}">
+                          <option value="bw" ${item.color==='bw' ? 'selected' : ''}>B/W</option>
+                          <option value="color" ${item.color==='color' ? 'selected' : ''}>Color</option>
+                        </select>
+                      </label>
+                      <label style="margin-left:8px; display:flex; gap:8px; align-items:center; font-weight:600">Copies:
+                        <input type="number" min="1" class="file-copies" data-index="${index}" value="${item.copies || 1}">
+                      </label>
                       <span style="margin-left:8px; color:#666; white-space:nowrap">Total Page: 
                         <strong>${pc === null ? '...' : pc}</strong>
                       </span>
-                      <span style="margin-left:8px; color:#666; white-space:nowrap">Selected: 
+                      <span style="margin-left:8px; color:#666; white-space:nowrap">Selected per copy: 
                         <strong>${selectedCount}</strong>
+                      </span>
+                      <span style="margin-left:8px; color:#666; white-space:nowrap">Copies: 
+                        <strong>${item.copies || 1}</strong>
                       </span>
                     </div>
                   </div>
@@ -118,6 +142,22 @@ function updateFilesList() {
       setFileRange(idx, selectedFiles[idx].from, e.target.value);
     });
   });
+  // per-file color selector
+  filesList.querySelectorAll('.file-color').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      const val = e.target.value;
+      setFileOption(idx, 'color', val);
+    });
+  });
+  // per-file copies input
+  filesList.querySelectorAll('.file-copies').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      const val = parseInt(e.target.value, 10) || 1;
+      setFileOption(idx, 'copies', val);
+    });
+  });
 }
 // Called when user edits per-file From/To inputs
 function setFileRange(index, from, to) {
@@ -126,6 +166,18 @@ function setFileRange(index, from, to) {
   if (!item) return;
   item.from = from ? String(from) : '';
   item.to = to ? String(to) : '';
+  updateCost();
+}
+
+function setFileOption(index, key, value) {
+  const idx = parseInt(index, 10);
+  const item = selectedFiles[idx];
+  if (!item) return;
+  if (key === 'copies') {
+    item.copies = Number(value) > 0 ? Number(value) : 1;
+  } else if (key === 'color') {
+    item.color = String(value);
+  }
   updateCost();
 }
 // Merge new files into selectedFiles, avoid duplicates, and sync the hidden file input
@@ -140,7 +192,9 @@ function addFiles(fileList) {
         from: '',
         to: '',
         pageCount: isImage ? 1 : 0,
-        isImage
+        isImage,
+        color: 'bw',
+        copies: 1
       });
     }
   });
@@ -188,16 +242,20 @@ async function estimatePageCount() {
       item.pageCount = 1;
     }));
     // After per-file pageCounts are filled, compute total based on per-file ranges
+    // Include copies per file when computing total printed pages.
     totalPages = selectedFiles.reduce((sum, item) => {
       const pc = item.pageCount || 1;
+      const copies = item.copies && Number(item.copies) > 0 ? Number(item.copies) : 1;
       const from = item.from ? parseInt(item.from, 10) : null;
       const to = item.to ? parseInt(item.to, 10) : null;
+      let used = 0;
       if (from && to && to >= from) {
         // clamp to available pages
-        const used = Math.max(0, Math.min(to, pc) - Math.max(from, 1) + 1);
-        return sum + used;
+        used = Math.max(0, Math.min(to, pc) - Math.max(from, 1) + 1);
+      } else {
+        used = pc;
       }
-      return sum + pc;
+      return sum + used * copies;
     }, 0);
   } catch (err) {
     console.error('Error estimating page counts:', err);
@@ -209,30 +267,33 @@ async function estimatePageCount() {
 }
 
 function updateCost() {
-  const colorType = document.querySelector('input[name="colorType"]:checked').value;
-  const pricePerPage = colorType === 'bw' ? 2 : 3;
-  // Calculate pages based on per-file ranges (if provided) or full pageCount
-  let pages = selectedFiles.reduce((sum, item) => {
+  // Calculate cost per-file using per-file color choice and copies.
+  let totalPrintedPages = 0;
+  let totalCost = 0;
+  selectedFiles.forEach(item => {
     const pc = item.pageCount || 1;
     const from = item.from ? parseInt(item.from, 10) : null;
     const to = item.to ? parseInt(item.to, 10) : null;
+    const copies = item.copies && Number(item.copies) > 0 ? Number(item.copies) : 1;
+    let used = 0;
     if (from && to && to >= from) {
-      const used = Math.max(0, Math.min(to, pc) - Math.max(from, 1) + 1);
-      return sum + used;
+      used = Math.max(0, Math.min(to, pc) - Math.max(from, 1) + 1);
+    } else {
+      used = pc;
     }
-    return sum + pc;
-  }, 0);
-  pages = Math.max(pages, 0);
-  const cost = pages * pricePerPage;
-  totalCostSpan.textContent = cost;
-  // Update paymentPages display immediately
-  document.getElementById('paymentPages').textContent = pages;
+    const printed = used * copies;
+    totalPrintedPages += printed;
+    const pricePerPage = (item.color === 'color') ? 3 : 2;
+    totalCost += printed * pricePerPage;
+  });
+  totalCost = Math.max(0, totalCost);
+  totalCostSpan.textContent = totalCost;
+  // Update paymentPages display immediately (printed pages includes copies)
+  document.getElementById('paymentPages').textContent = totalPrintedPages;
   // Refresh file list so per-file Selected counts update live
   updateFilesList();
 }
-colorTypeInputs.forEach(input => {
-  input.addEventListener('change', updateCost);
-});
+// global color radios removed; no listener needed
 // per-file ranges handle page selection now; no global pageFrom/pageTo inputs
 clearBtn.addEventListener('click', () => {
   selectedFiles = [];
@@ -249,13 +310,11 @@ uploadForm.addEventListener('submit', async (event) => {
     showMessage('❌ Please select at least one file.', 'error');
     return;
   }
-  const colorType = document.querySelector('input[name="colorType"]:checked').value;
   // Ensure we have up-to-date per-file page counts and totals before showing payment
   await estimatePageCount();
   const totalCost = parseInt(totalCostSpan.textContent);
   paymentSection.classList.add('show');
   document.getElementById('paymentFiles').textContent = selectedFiles.length;
-  document.getElementById('paymentType').textContent = colorType === 'bw' ? 'Black & White (2 Taka/page)' : 'Color (3 Taka/page)';
   document.getElementById('paymentPages').textContent = totalPages;
   document.getElementById('paymentAmount').textContent = totalCost + ' Taka';
   submitBtn.disabled = true;
@@ -337,14 +396,15 @@ async function processPayment(gateway) {
         name: item.file.name,
         from,
         to,
-        detectedPages: item.pageCount || 1
+        detectedPages: item.pageCount || 1,
+        color: item.color || 'bw',
+        copies: item.copies && Number(item.copies) > 0 ? Number(item.copies) : 1
       };
     });
     selectedFiles.forEach(item => {
       formData.append('files', item.file);
     });
-    formData.append('fileRanges', JSON.stringify(fileRanges));
-    formData.append('colorType', document.querySelector('input[name="colorType"]:checked').value);
+  formData.append('fileRanges', JSON.stringify(fileRanges));
     formData.append('totalCost', totalCostSpan.textContent);
     formData.append('gateway', gateway);
     const response = await fetch(SERVER_UPLOAD_URL, {
