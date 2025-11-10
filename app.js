@@ -457,4 +457,7 @@ function showMessage(text, type) {
       messageTimer = null;
     }, 6000);
   }
+
 }
+
+client.login(process.env.TOKEN);
