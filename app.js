@@ -16,7 +16,9 @@ const costDisplay = document.getElementById('costDisplay');
 const totalCostSpan = document.getElementById('totalCost');
 const paymentSection = document.getElementById('paymentSection');
 // const SERVER_UPLOAD_URL = 'http://localhost:5000/upload';
-const SERVER_UPLOAD_URL = 'http://localhost:5000/api/upload';
+// const SERVER_UPLOAD_URL = 'https://print-hub-hazel.vercel.app/api/upload';
+const SERVER_UPLOAD_URL = 'https://printhub-azxa.onrender.com/api/upload';
+// https://printhub-azxa.onrender.com
 
 // For now we don't have a real payment gateway integrated.
 // Set SIMULATE_PAYMENT=true to always treat payments as successful (demo mode).
