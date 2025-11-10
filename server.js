@@ -144,5 +144,6 @@ app.patch("/api/print-jobs/:id/status", async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`✅ Server is running on http://localhost:${port}`);
+    console.log(`✅ Server is running on https://printhub-azxa.onrender.com`);
+
 });
