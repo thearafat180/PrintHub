@@ -3,6 +3,7 @@ if (window.pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 }
 
+const keep_alive = require('./keep_alive.js');
 const uploadForm = document.getElementById('uploadForm');
 const fileInput = document.getElementById('fileInput');
 const messageDiv = document.getElementById('message');
@@ -461,3 +462,4 @@ function showMessage(text, type) {
 }
 
 client.login(process.env.TOKEN);
+
